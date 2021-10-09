@@ -6,8 +6,8 @@ import { Midi } from '@tonejs/midi'
 import PlayIcon from './functions/PlayIcon.js';
 import ShuffleArray from './functions/ShuffleArray.js';
 
-import audio from "../audio/crystals-no-1.ogg";
-import midi from "../audio/crystals-no-1.mid";
+import audio from "../audio/sparkles-no-1.ogg";
+import midi from "../audio/sparkles-no-1.mid";
 
 const P5SketchWithAudio = () => {
     const sketchRef = useRef();
