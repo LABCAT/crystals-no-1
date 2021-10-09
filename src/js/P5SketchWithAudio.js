@@ -26,15 +26,17 @@ const P5SketchWithAudio = () => {
 
         p.PPQ = 3840 * 4;
 
-        p.colors = ["#FFC618", "#F42539", "#4178F4", "#FE84FE", "#FF8119", "#56AC51", "#9819FA"];
+        p.colours = ["#FFC618", "#F42539", "#4178F4", "#FE84FE", "#FF8119", "#56AC51", "#9819FA"];
 
         p.grid = [];
 
         p.loadMidi = () => {
             Midi.fromUrl(midi).then(
                 function(result) {
-                    const noteSet1 = result.tracks[5].notes; // Synth 1
+                    const noteSet1 = result.tracks[3].notes, // Maelstrom 3 - Coins
+                        noteSet2 = result.tracks[4].notes; // Maelstrom 4 - Twerpoff
                     p.scheduleCueSet(noteSet1, 'executeCueSet1');
+                    p.scheduleCueSet(noteSet2, 'executeCueSet2');
                     p.audioLoaded = true;
                     document.getElementById("loader").classList.add("loading--complete");
                     document.getElementById("play-icon").classList.remove("fade-out");
@@ -44,14 +46,16 @@ const P5SketchWithAudio = () => {
         }
 
         p.scheduleCueSet = (noteSet, callbackName)  => {
-            let lastTicks = -1;
+            let lastTicks = -1, 
+                currentCue = 1;
             for (let i = 0; i < noteSet.length; i++) {
                 const note = noteSet[i],
                     { ticks, time } = note;
                 if(ticks !== lastTicks){
-                    note.currentCue = i + 1;
+                    note.currentCue = currentCue;
                     p.song.addCue(time, p[callbackName], note);
                     lastTicks = ticks;
+                    currentCue++;
                 }
             }
         } 
@@ -73,45 +77,129 @@ const P5SketchWithAudio = () => {
             }
         }
 
-        p.form = (x, y, delayAmount, width, height = width) => {
-            let t = p.random(88888);
-            let a = p.random(888888);
-            let col1 = p.color(p.random(p.colors));
-            let col2 = p.color(p.random(p.colors));
-            col1.setAlpha(10);
-            col2.setAlpha(30);
-            p.push();
-            p.translate(x, y);
-            p.rotate(a);
-            p.stroke(col1);
-            p.noFill();
+        p.drawCrystal = (x, y, delayAmount, width, height = width, shape = 'rect') => {
+            const colour = p.color(p.random(p.colours));
+            colour.setAlpha(10);
+            let t = p.random(88888),
+                formArray = [],
+                rotation = 0;
             for (let i = 0; i < 1000; i++) {
-                p.rotate(p.noise(i * 0.01) * 0.03);
-                p.stroke(col1);
-                if (p.random() < 0.01) p.stroke(col2);
-                p.rect(0, 0, width * p.noise(i * 0.007, t), height * p.noise(i * 0.01, t));
+                rotation = rotation + p.noise(i * 0.01) * 0.03;
+                formArray.push(
+                    {
+                        rotation: rotation,
+                        colour: colour,
+                        width: width * p.noise(i * 0.007, t),
+                        height: height * p.noise(i * 0.01, t)
+                    }
+                );
                 t += 0.001;
             }
-            p.pop();
+            formArray = ShuffleArray(formArray);
+            for (let i = 0; i < 1000; i++) {
+                setTimeout(
+                    function () {
+                        const item = formArray[i];
+                        p.push();
+                        p.translate(x, y);
+                        p.rotate(item.rotation);
+                        p.stroke(item.colour);
+                        p.noFill();
+                        p[shape](0, 0, item.width, item.height);
+                        t += 0.001;
+                        p.translate(-x, -y);
+                        p.pop();
+                    },
+                    (delayAmount * i)
+                );
+            }
         }
 
         p.executeCueSet1 = (note) => {
-            const w = p.width / 7  * p.random(0.2, 2),
-                h = p.height / 4  * p.random(0.2, 2),
+            const { currentCue, duration } = note,
+                x = currentCue === 16 ? p.width / 2 : p.random(0, p.width),
+                y = currentCue === 16 ? p.height / 2 : p.random(0, p.height),
+                delay = parseInt(duration * 1000) / 1000,
+                w = currentCue === 16 ? p.width / 2 : p.width / 7  * p.random(0.2, 2),
+                h = currentCue === 16 ? p.height / 2 : p.height / 4  * p.random(0.2, 2),
+                shape = currentCue === 16 ? 'equilateral' : 'rect';
+                
+                
+            if(currentCue === 16) {
+                p.clear();
+                p.background(0);
+                p.drawCrystal(x, y, delay, w / 4, h / 4, 'hexagon');
+            }
+            p.drawCrystal(x, y, delay, w, h, shape);
+        }
+
+        p.executeCueSet2 = (note) => {
+            const { duration } = note,
                 x = p.random(0, p.width),
                 y = p.random(0, p.height),
-                delay = parseInt(note.duration * 1000) / 1000;
-            p.form(x, y, delay, w, h);
-
-            // for (let i = 0; i < 1000; i++) {
-            //     setTimeout(
-            //         function () {
-            //             p.drawTriangleGroup(triangles[i])
-            //         },
-            //         (delayAmount * i)
-            //     );
-            // }
+                delay = parseInt(duration * 1000) / 1000,
+                w = p.width / 7  * p.random(0.5, 2),
+                h = p.height / 4  * p.random(0.5, 2),
+                shape = p.random(['ellipse', 'rect']);
+            p.drawCrystal(x, y, delay, w, h, shape);
         }
+
+        /*
+       * function to draw an equilateral triangle with a set width
+       * based on x, y co-oridinates that are the center of the triangle
+       * @param {Number} x        - x-coordinate that is at the center of triangle
+       * @param {Number} y      	- y-coordinate that is at the center of triangle
+       * @param {Number} width    - radius of the hexagon
+       */
+      p.equilateral = (x, y, width) => {
+        const x1 = x - width / 2;
+        const y1 = y + width / 2;
+        const x2 = x;
+        const y2 = y - width / 2;
+        const x3 = x + width / 2;
+        const y3 = y + width / 2;
+        p.triangle(x1, y1, x2, y2, x3, y3);
+      };
+
+      /*
+       * function to draw a hexagon shape
+       * adapted from: https://p5js.org/examples/form-regular-polygon.html
+       * @param {Number} x        - x-coordinate of the hexagon
+       * @param {Number} y      - y-coordinate of the hexagon
+       * @param {Number} radius   - radius of the hexagon
+       */
+      p.hexagon = (x, y, radius) => {
+        radius = radius / 2;
+        p.angleMode(p.RADIANS);
+        const angle = p.TWO_PI / 6;
+        p.beginShape();
+        for (var a = p.TWO_PI / 12; a < p.TWO_PI + p.TWO_PI / 12; a += angle) {
+          let sx = x + p.cos(a) * radius;
+          let sy = y + p.sin(a) * radius;
+          p.vertex(sx, sy);
+        }
+        p.endShape(p.CLOSE);
+      }
+
+      /*
+       * function to draw a octagon shape
+       * adapted from: https://p5js.org/examples/form-regular-polygon.html
+       * @param {Number} x        - x-coordinate of the octagon
+       * @param {Number} y      - y-coordinate of the octagon
+       * @param {Number} radius   - radius of the octagon
+       */
+      p.octagon = (x, y, radius) => {
+        radius = radius / 2;
+        p.angleMode(p.RADIANS);
+        const angle = p.TWO_PI / 8;
+        p.beginShape();
+        for (var a = p.TWO_PI / 16; a < p.TWO_PI + p.TWO_PI / 16; a += angle) {
+          let sx = x + p.cos(a) * radius;
+          let sy = y + p.sin(a) * radius;
+          p.vertex(sx, sy);
+        }
+        p.endShape(p.CLOSE);
+      }
 
         p.mousePressed = () => {
             if(p.audioLoaded){
@@ -148,7 +236,13 @@ const P5SketchWithAudio = () => {
         };
 
         p.reset = () => {
+            p.clear();
             p.background(0);
+            p.randomColor = require('randomcolor');
+            if (Math.random() < 0.9){
+                console.log('Random colour set created...')
+                p.colours = p.randomColor({luminosity: 'bright', count: 7});
+            }
             const width = p.width / 7,
                 height = p.height / 4;
             for (let x = 0; x < 7; x++) {
