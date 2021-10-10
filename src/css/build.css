@@ -52,8 +52,6 @@ body {
   transform-origin:50px 50px;
 }
 
-
-
 #play-icon {
   position: fixed;
   top: calc(50% - 60px);
